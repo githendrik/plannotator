@@ -12,6 +12,10 @@
  *    - Triggered by /review slash command
  *    - Runs git diff, opens review UI
  *    - Outputs feedback to stdout (captured by slash command)
+ *    - Flags:
+ *      - `--unstaged`: Show only unstaged changes (default: all uncommitted changes)
+ *      - `--local`: Use local worktree for PR/MR reviews (default for PR URLs)
+ *      - `--no-local`: Skip local worktree for PR/MR reviews
  *
  * 3. Annotate (`plannotator annotate <file.md>`):
  *    - Triggered by /plannotator-annotate slash command
@@ -194,6 +198,8 @@ if (args[0] === "sessions") {
   if (localIdx !== -1) args.splice(localIdx, 1);
   const noLocalIdx = args.indexOf("--no-local");
   if (noLocalIdx !== -1) args.splice(noLocalIdx, 1);
+  const unstagedIdx = args.indexOf("--unstaged");
+  if (unstagedIdx !== -1) args.splice(unstagedIdx, 1);
 
   const urlArg = args[1];
   const isPRMode = urlArg?.startsWith("http://") || urlArg?.startsWith("https://");
@@ -202,9 +208,9 @@ if (args[0] === "sessions") {
   let rawPatch: string;
   let gitRef: string;
   let diffError: string | undefined;
+  let initialDiffType: DiffType | undefined;
   let gitContext: Awaited<ReturnType<typeof getVcsContext>> | undefined;
   let prMetadata: Awaited<ReturnType<typeof fetchPR>>["metadata"] | undefined;
-  let initialDiffType: DiffType | undefined;
   let agentCwd: string | undefined;
   let worktreeCleanup: (() => void | Promise<void>) | undefined;
 
@@ -379,7 +385,7 @@ if (args[0] === "sessions") {
   } else {
     // --- Local Review Mode ---
     gitContext = await getVcsContext();
-    initialDiffType = gitContext.vcsType === "p4" ? "p4-default" : "uncommitted";
+    initialDiffType = unstagedIdx !== -1 ? "unstaged" : "uncommitted";
     const diffResult = await runVcsDiff(initialDiffType, gitContext.defaultBranch);
     rawPatch = diffResult.patch;
     gitRef = diffResult.label;

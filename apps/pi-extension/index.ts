@@ -335,6 +335,16 @@ export default function plannotator(pi: ExtensionAPI): void {
 	pi.registerCommand("plannotator-review", {
 		description: "Open interactive code review for current changes or a PR URL",
 		handler: async (args, ctx) => {
+			const argsString = args || "";
+			const argsArray = argsString.split(" ").filter(Boolean);
+			
+			// Parse flags
+			const unstagedIdx = argsArray.indexOf("--unstaged");
+			const showUnstaged = unstagedIdx !== -1;
+			
+			// Find URL arg (first non-flag argument)
+			const prUrl = argsArray.find(arg => !arg.startsWith("--"));
+			
 			if (!hasReviewBrowserHtml()) {
 				ctx.ui.notify(
 					"Code review UI not available. Run 'bun run build' in the pi-extension directory.",
@@ -344,9 +354,11 @@ export default function plannotator(pi: ExtensionAPI): void {
 			}
 
 			try {
-				const prUrl = args?.trim() || undefined;
 				const isPRReview = prUrl?.startsWith("http://") || prUrl?.startsWith("https://");
-				const result = await openCodeReview(ctx, { prUrl });
+				const result = await openCodeReview(ctx, { 
+					prUrl,
+					diffType: showUnstaged ? "unstaged" : undefined,
+				});
 				if (result.feedback) {
 					if (result.approved) {
 						pi.sendUserMessage(

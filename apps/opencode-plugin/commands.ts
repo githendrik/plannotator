@@ -39,7 +39,15 @@ export async function handleReviewCommand(
   const { client, reviewHtmlContent, getSharingEnabled, getShareBaseUrl, directory } = deps;
 
   // @ts-ignore - Event properties contain arguments
-  const urlArg: string = event.properties?.arguments || "";
+  const argsString: string = event.properties?.arguments || "";
+  const args = argsString.split(" ").filter(Boolean);
+  
+  // Parse flags
+  const unstagedIdx = args.indexOf("--unstaged");
+  const showUnstaged = unstagedIdx !== -1;
+  
+  // Find URL arg (first non-flag argument)
+  const urlArg = args.find(arg => !arg.startsWith("--"));
   const isPRMode = urlArg?.startsWith("http://") || urlArg?.startsWith("https://");
 
   let rawPatch: string;
@@ -78,7 +86,8 @@ export async function handleReviewCommand(
     client.app.log({ level: "info", message: "Opening code review UI..." });
 
     gitContext = await getGitContext(directory);
-    const diffResult = await runGitDiffWithContext("uncommitted", gitContext);
+    const diffType: import("@plannotator/shared/review-core").DiffType = showUnstaged ? "unstaged" : "uncommitted";
+    const diffResult = await runGitDiffWithContext(diffType, gitContext);
     rawPatch = diffResult.patch;
     gitRef = diffResult.label;
     diffError = diffResult.error;
@@ -89,7 +98,7 @@ export async function handleReviewCommand(
     gitRef,
     error: diffError,
     origin: "opencode",
-    diffType: isPRMode ? undefined : "uncommitted",
+    diffType: isPRMode ? undefined : (showUnstaged ? "unstaged" : "uncommitted"),
     gitContext,
     prMetadata,
     sharingEnabled: await getSharingEnabled(),
